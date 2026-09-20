@@ -135,8 +135,14 @@ private struct ItemRow: View {
         .background(isHovering ? Color.primary.opacity(0.06) : Color.clear)
         .onHover { isHovering = $0 }
         // The point of the whole app: pick it back up and drop it somewhere else.
+        // Hand over the URL itself, not the file's contents: a contents provider
+        // makes Finder write a fresh copy, whereas a `public.file-url` is what a
+        // drag out of Finder carries, so the destination moves or copies the
+        // original exactly as it would then.
         .onDrag {
-            NSItemProvider(contentsOf: item.url) ?? NSItemProvider()
+            let provider = NSItemProvider(object: item.url as NSURL)
+            provider.suggestedName = item.name
+            return provider
         }
         .onTapGesture(perform: reveal)
         .help("Drag out to move it · click to reveal in Finder")
