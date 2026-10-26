@@ -15,7 +15,9 @@ Requires macOS 14+ and Swift 5.9+.
 ```
 
 The bundle is ad-hoc signed (`codesign --sign -`). No developer account, provisioning
-profile, or notarization is involved. Shelf needs no permissions.
+profile, or notarization is involved. The signature is pinned to the bundle ID, so any
+folder access macOS asks for (shelving something from Downloads or Desktop, say)
+survives rebuilds.
 
 ## Using it
 

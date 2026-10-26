@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import ServiceManagement
 import SwiftUI
 
@@ -104,11 +105,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var hostingController: NSHostingController<PopoverView>!
+    private var itemsObserver: AnyCancellable?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         guard let button = statusItem.button else { return }
-        updateIcon()
+        // Follows every change to the shelf, including a remove or Clear from the
+        // popover, rather than waiting for the next prune to catch up.
+        itemsObserver = store.$items.sink { [weak self] items in
+            self?.updateIcon(itemCount: items.count)
+        }
 
         let target = DropTargetView(frame: button.bounds)
         target.autoresizingMask = [.width, .height]
@@ -120,7 +126,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         }
         target.onDrop = { [weak self] urls in
             self?.store.add(urls)
-            self?.updateIcon()
         }
         button.addSubview(target)
 
@@ -140,19 +145,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // Files get moved and deleted behind our back; do not show stale rows.
         Timer.scheduledTimer(withTimeInterval: 5.0, repeats: true) { [weak self] _ in
             self?.store.pruneMissing()
-            self?.updateIcon()
         }
     }
 
     /// A filled tray means the shelf is holding something.
-    private func updateIcon() {
-        let name = store.items.isEmpty ? "tray" : "tray.full.fill"
+    /// Takes the count rather than reading the store: `@Published` delivers the
+    /// new value before the property itself has changed.
+    private func updateIcon(itemCount: Int) {
+        let name = itemCount == 0 ? "tray" : "tray.full.fill"
         statusItem.button?.image = NSImage(systemSymbolName: name,
                                           accessibilityDescription: "Shelf")
         statusItem.button?.image?.isTemplate = true
-        statusItem.button?.toolTip = store.items.isEmpty
+        statusItem.button?.toolTip = itemCount == 0
             ? "Shelf — drag files here"
-            : "Shelf — \(store.items.count) item\(store.items.count == 1 ? "" : "s")"
+            : "Shelf — \(itemCount) item\(itemCount == 1 ? "" : "s")"
     }
 
     private func togglePopover() {
